@@ -30,8 +30,8 @@ if (!fs.existsSync(UPLOADS)) fs.mkdirSync(UPLOADS);
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS),
   filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random()*1e9);
-    cb(null, unique + '-' + file.originalname.replace(/\s+/g,'_'));
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, unique + '-' + file.originalname.replace(/\s+/g, '_'));
   }
 });
 const upload = multer({ storage });
@@ -42,6 +42,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(UPLOADS));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ✅ Route for homepage (Fix for "Cannot GET /")
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // API: get items (filter by type and approved)
 app.get('/api/items', (req, res) => {
   const qtype = req.query.type; // 'found' or 'lost' or undefined for all
@@ -49,13 +54,13 @@ app.get('/api/items', (req, res) => {
   let items = readDB().items || [];
   if (qtype) items = items.filter(it => it.type === qtype);
   if (onlyApproved) items = items.filter(it => it.approved);
-  res.json({ success:true, items });
+  res.json({ success: true, items });
 });
 
 // API: report item (multipart form for image + studentId image)
 app.post('/api/report', upload.fields([{ name: 'itemImage' }, { name: 'studentIdImage' }]), (req, res) => {
   try {
-    const { name, location, contact, desc, type, studentId ,category } = req.body;
+    const { name, location, contact, desc, type, studentId, category } = req.body;
     const itemImage = req.files['itemImage'] ? req.files['itemImage'][0].filename : null;
     const studentIdImage = req.files['studentIdImage'] ? req.files['studentIdImage'][0].filename : null;
 
@@ -77,7 +82,7 @@ app.post('/api/report', upload.fields([{ name: 'itemImage' }, { name: 'studentId
     db.items.unshift(newItem);
     writeDB(db);
 
-    // If reporting a FOUND item -> broadcast notification to all connected sockets
+    // If reporting a FOUND item -> broadcast notification
     if (newItem.type === 'found') {
       io.emit('notification', {
         title: 'New found item reported',
@@ -86,10 +91,10 @@ app.post('/api/report', upload.fields([{ name: 'itemImage' }, { name: 'studentId
       });
     }
 
-    res.json({ success:true, item: newItem });
+    res.json({ success: true, item: newItem });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success:false, error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -98,22 +103,22 @@ app.post('/api/admin/approve/:id', (req, res) => {
   const id = req.params.id;
   const db = readDB();
   const it = db.items.find(x => x.id === id);
-  if (!it) return res.status(404).json({ success:false, error:'Not found' });
+  if (!it) return res.status(404).json({ success: false, error: 'Not found' });
   it.approved = true;
   writeDB(db);
-  res.json({ success:true, item: it });
+  res.json({ success: true, item: it });
 });
 
-app.post('/api/admin/reject/:id', (req,res) => {
+app.post('/api/admin/reject/:id', (req, res) => {
   const id = req.params.id;
   let db = readDB();
   db.items = db.items.filter(x => x.id !== id);
   writeDB(db);
-  res.json({ success:true });
+  res.json({ success: true });
 });
 
-// simple health
-app.get('/api/health', (req,res) => res.json({ ok:true, time: new Date().toISOString() }));
+// simple health check
+app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
 // socket.io connection logging
 io.on('connection', (socket) => {
@@ -121,6 +126,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => console.log('socket disconnected:', socket.id));
 });
 
-// start server
+// ✅ Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server started on http://localhost:${PORT}`));
