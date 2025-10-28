@@ -1,0 +1,110 @@
+<!-- public/admin.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Findit@Campus - Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body style="background:linear-gradient(135deg,#1a1a2e,#16213e);">
+  <nav class="navbar" style="background:rgba(10,10,50,0.9)">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;">
+      <div class="logo"><span>🛠️ Findit@Campus (Admin)</span></div>
+      <div class="nav-right">
+        <span class="user" id="userEmail"></span>
+        <button onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+  <div class="container">
+    <header class="hero">
+      <h1>Admin Dashboard</h1>
+      <p>Review and manage all reported items (approve before they appear on feeds).</p>
+    </header>
+    <main>
+      <section style="margin-bottom:18px;">
+        <button onclick="fetchItems('all')">All</button>
+        <button onclick="fetchItems('found')">Found</button>
+        <button onclick="fetchItems('lost')">Lost</button>
+        <button onclick="fetchItems('pending')">Pending Approval</button>
+      </section>
+      <div class="card-container" id="items-list"></div>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+  <script>
+    (function() {
+      const auth = window.appAuth || {};
+      if (!auth.email || auth.role !== 'admin') {
+        window.location.href = '/login.html';
+        return;
+      }
+      document.getElementById('userEmail').textContent = auth.email;
+      fetchItems('pending');
+    })();
+
+    function logout(){
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('role');
+      window.location.href = '/login.html';
+    }
+
+    async function fetchItems(filter) {
+      let url = '/api/items';
+      if (filter === 'pending') url += '?approved=false';
+      else if (filter === 'found') url += '?type=found';
+      else if (filter === 'lost') url += '?type=lost';
+      // else all
+
+      const res = await fetch(url);
+      const json = await res.json();
+      const list = document.getElementById('items-list');
+      list.innerHTML = '';
+      (json.items || []).forEach(it => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        const idHtml = `<div style="font-size:0.8rem;color:#aaa">ID: ${it.id}</div>`;
+        const studentIdHtml = it.studentId ? `<p><strong>Student ID:</strong> ${it.studentId}</p>` : '';
+        const studentIdImg = it.studentIdImage ? `<a target="_blank" href="${it.studentIdImage}"><img src="${it.studentIdImage}" style="max-width:120px;display:block;margin-top:6px;border-radius:6px"/></a>` : '';
+        const actions = it.approved
+          ? `<button class="action delete" onclick="rejectItem('${it.id}')">Delete</button>`
+          : `<button class="action approve" onclick="approveItem('${it.id}')">Approve</button>
+             <button class="action reject" onclick="rejectItem('${it.id}')">Reject</button>`;
+
+        div.innerHTML = `
+          <img src="${it.image || 'https://via.placeholder.com/400x300?text=No+Image'}" />
+          <h3>${it.name}</h3>
+          ${idHtml}
+          <p><strong>Type:</strong> ${it.type}</p>
+          <p><strong>Category:</strong> ${it.category}</p> 
+          <p><strong>Location:</strong> ${it.location}</p>
+          <p><strong>Contact:</strong> ${it.contact}</p>
+          <p>${it.desc}</p>
+          ${studentIdHtml}
+          ${studentIdImg}
+          <div class="actions">${actions}</div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    async function approveItem(id) {
+      const res = await fetch(`/api/admin/approve/${id}`, { method:'POST' });
+      const j = await res.json();
+      if (j.success) {
+        alert('Approved');
+        fetchItems('pending');
+      } else alert('Error approving');
+    }
+    async function rejectItem(id) {
+      if (!confirm('Remove item permanently?')) return;
+      const res = await fetch(`/api/admin/reject/${id}`, { method:'POST' });
+      const j = await res.json();
+      if (j.success) { alert('Removed'); fetchItems('pending'); }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Findit@Campus - User</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;padding:0;">
+      <div class="logo"><span>🔍 Findit@Campus (User)</span></div>
+      <div class="nav-right">
+        <span class="user" id="userEmail"></span>
+        <button onclick="showFeed('found')">Found</button>
+        <button onclick="showFeed('lost')">Lost</button>
+        <button onclick="showReport()">Report Item</button>
+        <button onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+  <div class="container">
+    <header class="hero">
+      <h1>Welcome to <span>Findit@Campus</span></h1>
+      <p>A place to report and recover lost belongings on campus.</p>
+    </header>
+    <main id="content">
+     <section id="feed-section">
+  <h2 id="feed-title">Approved Found Items</h2>
+
+  <!-- 🔍 Search + Filter controls -->
+  <div class="filter-bar">
+    <input type="text" id="searchInput" placeholder="Search by name, phone, room, etc..." />
+    <select id="categoryFilter">
+      <option value="All">All Categories</option>
+      <option value="Electronics">Electronics</option>
+      <option value="Books">Books</option>
+      <option value="ID Cards">ID Cards</option>
+      <option value="Keys">Keys</option>
+      <option value="Clothing">Clothing</option>
+      <option value="Accessories">Accessories</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+
+  <div class="card-container" id="items-list"></div>
+</section>
+
+
+      <section id="report-section" class="hidden">
+        <h2>Report an Item (Lost / Found)</h2>
+        <form id="reportForm" enctype="multipart/form-data">
+          <select id="itemType" required>
+            <label>Category</label>
+<select id="itemCategory" required>
+  <option value="Electronics">Electronics</option>
+  <option value="Books">Books</option>
+  <option value="ID Cards">ID Cards</option>
+  <option value="Keys">Keys</option>
+  <option value="Clothing">Clothing</option>
+  <option value="Accessories">Accessories</option>
+  <option value="Other">Other</option>
+</select>
+
+            <option value="found">Found (I found this)</option>
+            <option value="lost">Lost (I lost this)</option>
+          </select>
+          <input type="text" id="itemName" placeholder="Item name" required />
+          <input type="text" id="itemLocation" placeholder="Location (where found / lost)" required />
+          <input type="text" id="itemContact" placeholder="Contact number" required />
+          <textarea id="itemDesc" placeholder="Description"></textarea>
+
+          <label>Item image (optional)</label>
+          <input type="file" id="itemImage" accept="image/*" />
+
+          <h4>Student ID (required for security)</h4>
+          <input type="text" id="studentId" placeholder="Student ID (e.g. 2021EC123)" required />
+          <label>Upload Student ID card image (photo/scan)</label>
+          <input type="file" id="studentIdImage" accept="image/*" required />
+
+          <button type="submit">Submit</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <!-- small toast style -->
+  <style>
+    .live-toast {
+      position: fixed;
+      right: 20px;
+      bottom: -120px;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+      transition: transform .25s, opacity .25s, bottom .4s;
+      z-index: 9999;
+      max-width: 320px;
+      cursor: pointer;
+    }
+    .live-toast.visible { bottom: 20px; opacity:1; transform: translateY(0); }
+    .live-toast strong { display:block; margin-bottom:6px; }
+  </style>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+  <script>
+    // require user auth (basic)
+    (function() {
+      const auth = window.appAuth || {};
+      if (!auth.email || auth.role !== 'user') {
+        window.location.href = '/login.html';
+        return;
+      }
+      document.getElementById('userEmail').textContent = auth.email;
+      // show found by default
+      showFeed('found');
+    })();
+
+    function logout() {
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('role');
+      window.location.href = '/login.html';
+    }
+
+    // show feed
+     let foundItemsCache = []; // store fetched items
+
+async function showFeed(type) {
+  document.getElementById('feed-section').classList.remove('hidden');
+  document.getElementById('report-section').classList.add('hidden');
+  document.getElementById('feed-title').textContent =
+    type === 'found' ? 'Approved Found Items' : 'Approved Lost Items';
+
+  const res = await fetch(`/api/items?type=${type}&approved=true`);
+  const data = await res.json();
+  foundItemsCache = data.items || [];
+
+  renderFilteredItems();
+}
+
+// render items based on search + category
+function renderFilteredItems() {
+  const search = document.getElementById('searchInput')?.value.toLowerCase() || '';
+  const category = document.getElementById('categoryFilter')?.value || 'All';
+  const list = document.getElementById('items-list');
+  list.innerHTML = '';
+
+  const filtered = foundItemsCache.filter(it => {
+    const matchText =
+      it.name?.toLowerCase().includes(search) ||
+      it.location?.toLowerCase().includes(search) ||
+      it.contact?.toLowerCase().includes(search) ||
+      it.desc?.toLowerCase().includes(search) ||
+      it.category?.toLowerCase().includes(search);
+
+    const matchCategory = category === 'All' || it.category === category;
+    return matchText && matchCategory;
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<p style="text-align:center;color:#aaa;">No items found</p>`;
+    return;
+  }
+
+  filtered.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <img src="${it.image || 'https://via.placeholder.com/400x300?text=No+Image'}" />
+      <h3>${it.name}</h3>
+      <p><strong>Category:</strong> ${it.category}</p>
+      <p><strong>Location:</strong> ${it.location}</p>
+      <p><strong>Contact:</strong> <a href="tel:${it.contact}">${it.contact}</a></p>
+      <p>${it.desc}</p>
+      <p style="font-size:0.8rem;color:#aaa">Reported: ${new Date(it.reportedAt).toLocaleString()}</p>
+    `;
+    list.appendChild(div);
+  });
+}
+
+// event listeners for filters
+document.addEventListener('input', e => {
+  if (e.target.id === 'searchInput' || e.target.id === 'categoryFilter') {
+    renderFilteredItems();
+  }
+});
+
+
+    function showReport() {
+      document.getElementById('feed-section').classList.add('hidden');
+      document.getElementById('report-section').classList.remove('hidden');
+    }
+
+    // report form submit (multipart)
+    document.getElementById('reportForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData();
+      formData.append('type', document.getElementById('itemType').value);
+      formData.append('category', document.getElementById('itemCategory').value);
+      formData.append('name', document.getElementById('itemName').value);
+      formData.append('location', document.getElementById('itemLocation').value);
+      formData.append('contact', document.getElementById('itemContact').value);
+      formData.append('desc', document.getElementById('itemDesc').value || '');
+      formData.append('studentId', document.getElementById('studentId').value);
+      const itemImage = document.getElementById('itemImage').files[0];
+      const studentIdImage = document.getElementById('studentIdImage').files[0];
+      if (itemImage) formData.append('itemImage', itemImage);
+      if (studentIdImage) formData.append('studentIdImage', studentIdImage);
+
+      // submit
+      const resp = await fetch('/api/report', { method:'POST', body: formData });
+      const j = await resp.json();
+      if (j.success) {
+        alert('Submitted for admin approval. A notification will be broadcast (found items).');
+        form.reset();
+        showFeed('found');
+      } else {
+        alert('Error: ' + (j.error || 'unknown'));
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "items": [
+    {
+      "id": "it_1761623498165",
+      "name": "fsgdhja",
+      "location": "qieweywy",
+      "contact": "qwiweui",
+      "desc": "qwhywey",
+      "type": "found",
+      "image": "/uploads/1761623498122-378385082-Screenshot_(1).png",
+      "studentId": "kjeheffj",
+      "studentIdImage": "/uploads/1761623498147-281635925-Screenshot_2025-07-16_233231.png",
+      "approved": false,
+      "reportedAt": "2025-10-28T03:51:38.165Z"
+    },
+    {
+      "id": "it_1761623460849",
+      "name": "bag",
+      "location": "456",
+      "contact": "34567",
+      "desc": "3456",
+      "type": "found",
+      "image": "/uploads/1761623460807-217726085-Screenshot_2025-10-25_190838.png",
+      "studentId": "23456",
+      "studentIdImage": "/uploads/1761623460811-283745694-Screenshot_(1).png",
+      "approved": false,
+      "reportedAt": "2025-10-28T03:51:00.849Z"
+    },
+    {
+      "id": "it_1761623108012",
+      "name": "AS",
+      "location": "1232",
+      "contact": "3456789567",
+      "desc": "SDFGHJK",
+      "type": "found",
+      "image": "/uploads/1761623108002-921675388-Screenshot_2025-09-23_103325.png",
+      "studentId": "123456789",
+      "studentIdImage": "/uploads/1761623108004-103663850-Screenshot_2025-08-29_161513.png",
+      "approved": false,
+      "reportedAt": "2025-10-28T03:45:08.012Z"
+    }
+  ]
+}
